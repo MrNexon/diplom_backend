@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add Thing | Admin Panel</title>
+    <style>
+        span {
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        label {
+            font-size: 21px;
+            font-weight: bold;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        select {
+            display: inline-block;
+        }
+
+        table {
+            border-collapse: collapse;
+            border: 1px solid grey;
+        }
+
+        th {
+            border: 1px solid grey;
+        }
+
+        td {
+            border: 1px solid grey;
+        }
+
+        form {
+            display: inline-block;
+        }
+
+        fieldset {
+            display: inline-block;
+        }
+
+        .detailSelect {
+            display: inline-block;
+            margin-bottom: 5px;
+        }
+
+        .quantity {
+            width: 50px;
+            display: inline-block;
+        }
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script>
+        window.apiAddress = 'http://localhost:3000/admin';
+        window.wsAddress = 'ws://localhost:3001';
+
+        window.detailsIndex = 0;
+
+        $(() => {
+            loadThingsTable();
+            loadDetails();
+        });
+
+        //Загружаем список деталей
+        function loadDetails() {
+            $.get(`${window.apiAddress}/details`, function(data) {
+                window.options = data.map((item) => (`<option value="${item.id}">${item.name}</option>`));
+                updateDetails();
+            });
+        }
+
+        //Запихиваем его во все выпадающие списки
+        function updateDetails() {
+            const els = $('.detailSelect');
+            for (const el of els) {
+                $(el).append(window.options);
+            }
+        }
+
+        //Функция сохранения данных
+        function save() {
+            const details = [];
+            const formData = new FormData($('#thingsForm')[0]);
+
+            //Перебираем все добавленные детали и преобразовываем их в удобный формат
+            for (let [name, value] of formData.entries()) {
+                if (name.indexOf('[') == -1) continue;
+                const [index, property] = name.match(/\[.*?\]\[(\d+)\]\[(.*?)\]$/).slice(1);
+                const detailIndex = parseInt(index, 10);
+                const detail = details[detailIndex] || {};
+                detail[property] = value;
+                details[detailIndex] = detail;
+            }
+
+            //Собираем данные для отправки
+            const result = {
+                name: formData.get('name'),
+                details: details
+            };
+
+
+            $.ajax({
+                url: `${apiAddress}/thing`,
+                method: 'post',
+                contentType: "application/json",
+                data: JSON.stringify(result),
+                success: function(data){
+                    //Перезагружаем страницу при успешной отправке данных
+                    window.location.reload();
+                }
+            });
+        }
+
+        //Функция добавления строк деталей в форму
+        function addDetail() {
+            window.detailsIndex += 1;
+            $(`#details`).append(
+                `<select class="detailSelect" name="[details][${window.detailsIndex}][id]"><option value="none"></option>${window.options}</select>
+                <input class="quantity" name="[details][${window.detailsIndex}][need]" type="number" placeholder="Кол-во" required/><br>`
+
+            );
+        }
+
+        //Функция загрузки и отрисовки доступных вещей и их деталей
+        function loadThingsTable() {
+            $.get(`${window.apiAddress}/things`, function(data) {
+                for (const item of data) {
+                    $('#thingsTable').append(
+                        `<tr>
+                            <td>${item.thing.id}</td>
+                            <td>${item.thing.name}</td>
+                            <td>
+                                <table id="item-thing-${item.thing.id}">
+                                    <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Наименование</th>
+                                        <th>Всего кол-во</th>
+                                        <th>Требуется кол-во</th>
+                                    </tr>
+                                    </thead>
+                                </table>
+                            </td>
+                            <td><button onclick="deleteThing(${item.thing.id})">Удалить вещь</button></td>
+                        </tr>`
+                    );
+
+                    item.details.map((detail) => {
+                        $(`#item-thing-${item.thing.id}`).append(
+                            `<tr>
+                                <td>${detail.id}</td>
+                                <td>${detail.name}</td>
+                                <td>${detail.quantity}</td>
+                                <td>${detail.need}</td>
+                            </tr>`
+                        )
+                    });
+
+                }
+            });
+        }
+
+        function deleteThing(id) {
+            $.ajax({
+                url: `${window.apiAddress}/thing/${id}`,
+                type: 'DELETE',
+                success: function(result) {
+                    window.location.reload();
+                }
+            });
+        }
+    </script>
+</head>
+<body>
+    <h1>Вещи</h1>
+    <table id="thingsTable">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Наименование</th>
+            <th>Детали</th>
+            <th>Действие</th>
+        </tr>
+        </thead>
+    </table>
+    <br>
+    <h1>Добавить вещь</h1>
+    <form action="" id="thingsForm">
+        <input name="name" placeholder="Наименование" required/>
+        <fieldset id="details">
+            <legend>Детали</legend>
+            <select class="detailSelect" name="[details][0][id]"><option value="none"></option></select>
+            <input class="quantity" name="[details][0][need]" type="number" placeholder="Кол-во" required/>
+            <br>
+        </fieldset>
+    </form>
+    <button type="button" onclick="addDetail()">Добавить еще</button>
+    <br>
+    <br>
+    <input type="submit" value="Сохранить" onclick="save()"/>
+    <br>
+    <br>
+    <a href="admin.html"><- Назад</a>
+</body>
+</html>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add Detail | Admin Panel</title>
+    <style>
+        span {
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        label {
+            font-size: 21px;
+            font-weight: bold;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        select {
+            display: inline-block;
+        }
+
+        table {
+            border-collapse: collapse;
+            border: 1px solid grey;
+        }
+
+        th {
+            border: 1px solid grey;
+        }
+
+        td {
+            border: 1px solid grey;
+        }
+
+        form {
+            display: inline-block;
+        }
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script>
+        window.apiAddress = 'http://localhost:3000/admin';
+        window.wsAddress = 'ws://localhost:3001';
+
+        window.formIndex = 0;
+
+        $(() => {
+            loadDetails();
+        });
+
+        function saveDetail() {
+            const details = [];
+            const formData = new FormData($('#detailsForm')[0]);
+
+            for (let [name, value] of formData.entries()) {
+                const [index, property] = name.match(/\[(\d+)\]\[(.*?)\]$/).slice(1);
+                const detailIndex = parseInt(index, 10);
+                const detail = details[detailIndex] || {};
+                detail[property] = value;
+                details[detailIndex] = detail;
+            }
+
+            console.log(details)
+
+            $.ajax({
+                url: `${apiAddress}/details`,
+                method: 'post',
+                contentType: "application/json",
+                data: JSON.stringify(details),
+                success: function(data){
+                    window.location.reload();
+                }
+            });
+        }
+
+        function addRow() {
+            window.formIndex += 1;
+            $('#detailsForm').append(
+                `<fieldset>
+                    <legend>Деталь ${window.formIndex + 1}</legend>
+                    <input name="[${window.formIndex}][name]" placeholder="Наименование" required/>
+                    <input name="[${window.formIndex}][box_index]" placeholder="Индекс ячейки" required/>
+                    <input name="[${window.formIndex}][quantity]" placeholder="Количество" required/>
+                </fieldset>`
+            );
+        }
+
+        function loadDetails() {
+            $.get(`${window.apiAddress}/details`, function(data) {
+                for (const item of data) {
+                    $('#detailsTable').append(
+                        `<tr>
+                            <td>${item.id}</td>
+                            <td>${item.name}</td>
+                            <td>${item.box_index}</td>
+                            <td>${item.quantity}</td>
+                            <td><button onclick="deleteDetail(${item.id})">Удалить деталь</button></td>
+                        </tr>`
+                    );
+                }
+            });
+        }
+
+        function deleteDetail(id) {
+            $.ajax({
+                url: `${window.apiAddress}/detail/${id}`,
+                type: 'DELETE',
+                success: function(result) {
+                    window.location.reload();
+                }
+            });
+        }
+    </script>
+</head>
+<body>
+    <form>
+
+    </form>
+    <h1>Детали</h1>
+    <table id="detailsTable">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Наименование</th>
+            <th>Индекс ячейки</th>
+            <th>Количество</th>
+            <th>Действие</th>
+        </tr>
+        </thead>
+    </table>
+    <br>
+    <h1>Добавить деталь</h1>
+    <form action="" id="detailsForm">
+        <fieldset>
+            <legend>Деталь 1</legend>
+            <input name="[0][name]" placeholder="Наименование" required/>
+            <input name="[0][box_index]" placeholder="Индекс ячейки" required/>
+            <input name="[0][quantity]" placeholder="Количество" required/>
+        </fieldset>
+    </form>
+    <button onclick="addRow()">Добавить еще</button>
+    <br>
+    <br>
+    <input type="submit" value="Сохранить" onclick="saveDetail()"/>
+    <br>
+    <br>
+    <a href="admin.html"><- Назад</a>
+</body>
+</html>

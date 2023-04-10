@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Control Panel</title>
+    <style>
+        span {
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        label {
+            font-size: 21px;
+            font-weight: bold;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        select {
+            display: inline-block;
+        }
+
+        table {
+            border-collapse: collapse;
+            border: 1px solid grey;
+            margin-bottom: 10px;
+        }
+
+        th {
+            border: 1px solid grey;
+        }
+
+        td {
+            border: 1px solid grey;
+        }
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script>
+        //Объявление адресов (куда отправляться за данными)
+        window.apiAddress = 'http://localhost:3000';
+        window.wsAddress = 'ws://localhost:3001';
+
+        //Функция которая вызывает функцию loadThings при старте страницы
+        $(() => {
+            loadThings();
+        });
+
+        // Получение списка вещей
+        function loadThings() {
+            $.get(`${window.apiAddress}/things`, function(data) {
+                for (const item of data) {
+                    //Запихивание полученных данных в выпадающий список
+                    $('#select').append($('<option>', {
+                        value: item.id,
+                        text: item.name
+                    }));
+                }
+            });
+        }
+
+        function loadDetails() {
+            //Очистка страницы для последующей отрисовки
+            const value = $('#select').val();
+            $('.details table').remove();
+            if (value == 'none') return;
+
+            //Создание заголовка таблицы необходимых деталей
+            $('.details').append(`
+                <table id="detailsTable">
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Наименование</th>
+                        <th>Индекс ячейки</th>
+                        <th>Требуется</th>
+                        <th>Останется</th>
+                    </tr>
+                    </thead>
+                </table>`
+            )
+
+            //Получение списка деталей для выбранной вещи
+            $.get(`${window.apiAddress}/details/${value}`, function(data) {
+                clearInterval(window.interval);
+                for (const item of data) {
+                    //Запихивание деталей в таблицу
+                    $('#detailsTable').append(
+                        `<tr id="item_${item.box_index}">
+                            <td>${item.id}</td>
+                            <td>${item.name}</td>
+                            <td>${item.box_index}</td>
+                            <td>${item.need}</td>
+                            <td>${item.quantity}</td>
+                        </tr>`
+                    );
+                }
+            });
+        }
+
+        //Функция отправки события "построить" на бэкенд и МК
+        function build() {
+            const value = $('#select').val();
+            $.ajax({
+                url: `${apiAddress}/details/${value}/build`,
+                method: 'POST',
+                success: function(data) {
+                    //Если данные на МК были отправлены мы подключаемся к WS серверу
+                    //для обновления статуса коробок/деталей
+                    window.ws = new WebSocket(window.wsAddress);
+                    window.ws.onmessage = (data) => {
+                        const message = JSON.parse(data.data);
+                        const boxIndex = message.disable;
+
+                        //Удаляем детали из таблицы если была нажата кнопка МК
+                        $(`#item_${boxIndex}`).remove();
+                        if ($('#detailsTable tr').length == 0) {
+                            window.ws.close();
+                        }
+                    }
+                },
+                error: function () {
+                    //Если не удается "построить" вещь, выводим сообщение
+                    $('.details table').remove();
+                    $('.details').append('<span>Не достаточно деталей!</span>');
+                    $('#select').val('none');
+                    window.interval = setTimeout(() => {
+                        $('.details span').remove();
+                    }, 3000)
+                }
+            })
+
+        }
+    </script>
+</head>
+<body>
+    <label for="select">Вещь:</label>
+    <select id="select" onchange="loadDetails()"><option value="none"></option></select>
+    <br>
+    <br>
+    <div class="details">
+    </div>
+    <button onclick="build()">Собрать</button>
+</body>
+</html>

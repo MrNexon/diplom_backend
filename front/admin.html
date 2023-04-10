@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Panel</title>
+    <style>
+        span {
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        label {
+            font-size: 21px;
+            font-weight: bold;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        select {
+            display: inline-block;
+        }
+
+        table {
+            border-collapse: collapse;
+            border: 1px solid grey;
+        }
+
+        th {
+            border: 1px solid grey;
+        }
+
+        td {
+            border: 1px solid grey;
+        }
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script>
+        window.apiAddress = 'http://localhost:3000/admin';
+        window.wsAddress = 'ws://localhost:3001';
+
+        $(() => {
+            loadThingsTable();
+            loadDetails();
+        });
+
+        function loadThingsTable() {
+            $.get(`${window.apiAddress}/things`, function(data) {
+                for (const item of data) {
+                    $('#thingsTable').append(
+                        `<tr>
+                            <td>${item.thing.id}</td>
+                            <td>${item.thing.name}</td>
+                            <td>
+                                <table id="item-thing-${item.thing.id}">
+                                    <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Наименование</th>
+                                        <th>Всего кол-во</th>
+                                        <th>Требуется кол-во</th>
+                                    </tr>
+                                    </thead>
+                                </table>
+                            </td>
+                            <td><button onclick="deleteThing(${item.thing.id})">Удалить вещь</button></td>
+                        </tr>`
+                    );
+
+                    item.details.map((detail) => {
+                        $(`#item-thing-${item.thing.id}`).append(
+                            `<tr>
+                                <td>${detail.id}</td>
+                                <td>${detail.name}</td>
+                                <td>${detail.quantity}</td>
+                                <td>${detail.need}</td>
+                            </tr>`
+                        )
+                    });
+
+                }
+            });
+        }
+
+        function loadDetails() {
+            $.get(`${window.apiAddress}/details`, function(data) {
+                for (const item of data) {
+                    $('#detailsTable').append(
+                        `<tr>
+                            <td>${item.id}</td>
+                            <td>${item.name}</td>
+                            <td>${item.box_index}</td>
+                            <td>${item.quantity}</td>
+                            <td><button onclick="deleteDetail(${item.id})">Удалить деталь</button></td>
+                        </tr>`
+                    );
+                }
+            });
+        }
+
+        function deleteThing(id) {
+            $.ajax({
+                url: `${window.apiAddress}/thing/${id}`,
+                type: 'DELETE',
+                success: function(result) {
+                    window.location.reload();
+                }
+            });
+        }
+
+        function deleteDetail(id) {
+            $.ajax({
+                url: `${window.apiAddress}/detail/${id}`,
+                type: 'DELETE',
+                success: function(result) {
+                    window.location.reload();
+                }
+            });
+        }
+    </script>
+</head>
+<body>
+    <h1>Вещи</h1>
+    <table id="thingsTable">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Наименование</th>
+            <th>Детали</th>
+            <th>Действие</th>
+        </tr>
+        </thead>
+    </table>
+    <br>
+    <h1>Детали</h1>
+    <table id="detailsTable">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Наименование</th>
+            <th>Индекс ячейки</th>
+            <th>Количество</th>
+            <th>Действие</th>
+        </tr>
+        </thead>
+    </table>
+    <br>
+    <br>
+    <a href="admin-add-detail.html">Добавить деталь</a>
+    <br>
+    <a href="admin-add-thing.html">Добавить вещь</a>
+</body>
+</html>
